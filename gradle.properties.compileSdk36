@@ -1,0 +1,15 @@
+org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+android.useAndroidX=true
+android.nonTransitiveRClass=true
+
+# Android SDK versions (compileSdk 36 fallback for compatibility)
+android.compileSdk=36
+android.buildToolsVersion=36.0.0
+android.ndkVersion=29.0.14206865
+android.targetSdk=36
+android.minSdk=25
+
+# Instructions: If you encounter compileSdk 37 compatibility issues,
+# replace gradle.properties with this file and rebuild:
+# cp gradle.properties.compileSdk36 gradle.properties
+# ./gradlew clean build
