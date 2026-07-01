@@ -1,0 +1,32 @@
+<resources>
+    <!-- Home - Status -->
+    <string name="home_status_service_is_running">Nightzuku запущен</string>
+    <string name="home_status_service_not_running">Nightzuku не запущен</string>
+
+    <!-- Application management -->
+    <string name="home_app_management_title">Управление приложениями</string>
+    <plurals name="home_app_management_authorized_apps_count">
+        <item quantity="one">Авторизовано %d приложение</item>
+        <item quantity="few">Авторизовано %d приложения</item>
+        <item quantity="many">Авторизовано %d приложений</item>
+        <item quantity="other">Авторизовано %d приложения</item>
+    </plurals>
+
+    <!-- Terminal -->
+    <string name="home_terminal_title">Использовать Nightzuku в терминале</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Настройки</string>
+    <string name="settings_language">Язык</string>
+    <string name="settings_user_interface">Внешний вид</string>
+    <string name="settings_startup">Автозапуск</string>
+    <string name="settings_start_on_boot">Запускать при загрузке (root)</string>
+    <string name="settings_start_on_boot_summary">Для устройств с root-правами Nightzuku может запускаться автоматически при включении</string>
+    
+    <!-- ADB -->
+    <string name="development_settings">Параметры разработчика</string>
+    <string name="dialog_adb_discovery_message">Пожалуйста, включите \"Отладку по Wi-Fi\" в \"Параметрах разработчика\".</string>
+
+    <!-- Lab Features -->
+    <string name="lab_features_title">Экспериментальные функции</string>
+</resources>

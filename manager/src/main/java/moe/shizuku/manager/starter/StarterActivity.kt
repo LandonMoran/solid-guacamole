@@ -1,0 +1,314 @@
+package moe.shizuku.manager.starter
+
+import android.content.Context
+import android.os.Bundle
+import android.util.Log
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.viewModelScope
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.topjohnwu.superuser.CallbackList
+import com.topjohnwu.superuser.Shell
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import moe.shizuku.manager.AppConstants.EXTRA
+import moe.shizuku.manager.R
+import moe.shizuku.manager.ShizukuSettings
+import moe.shizuku.manager.adb.AdbClient
+import moe.shizuku.manager.adb.AdbKey
+import moe.shizuku.manager.adb.AdbKeyException
+import moe.shizuku.manager.adb.PreferenceAdbKeyStore
+import moe.shizuku.manager.app.AppActivity
+import moe.shizuku.manager.ui.compose.ExpressiveCard
+import moe.shizuku.manager.ui.compose.HtmlText
+import moe.shizuku.manager.ui.compose.MonospaceLog
+import moe.shizuku.manager.ui.compose.ShizukuExpressiveTheme
+import moe.shizuku.manager.ui.compose.ShizukuLazyScaffold
+import rikka.lifecycle.Resource
+import rikka.lifecycle.Status
+import rikka.lifecycle.viewModels
+import rikka.shizuku.Shizuku
+import java.net.ConnectException
+import javax.net.ssl.SSLProtocolException
+
+private class NotRootedException : Exception()
+
+class StarterActivity : AppActivity() {
+
+    private var waitingForService = false
+    private var binderReceivedListener: Shizuku.OnBinderReceivedListener? = null
+
+    private val viewModel by viewModels {
+        ViewModel(
+            this,
+            intent.getBooleanExtra(EXTRA_IS_ROOT, true),
+            intent.getStringExtra(EXTRA_HOST),
+            intent.getIntExtra(EXTRA_PORT, 0)
+        )
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        binderReceivedListener?.let {
+            Shizuku.removeBinderReceivedListener(it)
+            binderReceivedListener = null
+        }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        val startedWithRoot = intent.getBooleanExtra(EXTRA_IS_ROOT, true)
+
+        viewModel.output.observe(this) {
+            val output = it.data.orEmpty().trim()
+            if (!waitingForService && output.endsWith("info: shizuku_starter exit with 0")) {
+                waitingForService = true
+                viewModel.appendOutput("")
+                viewModel.appendOutput("Waiting for service...")
+
+                val listener = object : Shizuku.OnBinderReceivedListener {
+                    override fun onBinderReceived() {
+                        Shizuku.removeBinderReceivedListener(this)
+                        binderReceivedListener = null
+                        runOnUiThread {
+                            viewModel.appendOutput("Service started, this window will be automatically closed in 3 seconds")
+                            window?.decorView?.postDelayed({
+                                if (!isFinishing) finish()
+                            }, 3000)
+                        }
+                    }
+                }
+                binderReceivedListener = listener
+                Shizuku.addBinderReceivedListenerSticky(listener)
+            }
+        }
+
+        setContent {
+            val outputResource by viewModel.output.observeAsState()
+            val output = outputResource?.data.orEmpty()
+            val failed = outputResource?.status == Status.ERROR
+            var errorToShow by remember(outputResource) {
+                mutableIntStateOf(if (outputResource?.status == Status.ERROR) {
+                    when (outputResource?.error) {
+                        is AdbKeyException -> R.string.adb_error_key_store
+                        is NotRootedException -> R.string.start_with_root_failed
+                        is ConnectException -> R.string.cannot_connect_port
+                        is SSLProtocolException -> R.string.adb_pair_required
+                        else -> 0
+                    }
+                } else 0)
+            }
+
+            val isWatch = moe.shizuku.manager.utils.EnvironmentUtils.isWatch(this@StarterActivity)
+            val isTv = moe.shizuku.manager.utils.EnvironmentUtils.isTV(this@StarterActivity)
+            if (isWatch) {
+                moe.shizuku.manager.ui.compose.WearShizukuTheme {
+                    Box {
+                        WearStarterScreen(
+                            output = output,
+                            failed = failed,
+                            startedWithRoot = startedWithRoot
+                        )
+
+                        if (errorToShow != 0) {
+                            moe.shizuku.manager.home.HomeErrorDialog(
+                                message = stringResource(errorToShow),
+                                onDismiss = { errorToShow = 0 }
+                            )
+                        }
+                    }
+                }
+            } else if (isTv) {
+                moe.shizuku.manager.ui.compose.TvShizukuTheme {
+                    Box {
+                        TvStarterScreen(
+                            onNavigateUp = { finish() },
+                            output = output,
+                            failed = failed,
+                            startedWithRoot = startedWithRoot
+                        )
+
+                        if (errorToShow != 0) {
+                            moe.shizuku.manager.home.HomeErrorDialog(
+                                message = stringResource(errorToShow),
+                                onDismiss = { errorToShow = 0 }
+                            )
+                        }
+                    }
+                }
+            } else {
+                ShizukuExpressiveTheme {
+                    Box {
+                        ShizukuLazyScaffold(
+                            title = stringResource(R.string.starter),
+                            onNavigateUp = { finish() },
+                            navigationIcon = R.drawable.ic_close_24
+                        ) {
+                            item {
+                                ExpressiveCard(
+                                    icon = if (startedWithRoot) R.drawable.ic_root_24dp else R.drawable.ic_adb_24dp,
+                                    title = if (startedWithRoot) {
+                                        HtmlText(R.string.home_root_title)
+                                    } else {
+                                        HtmlText(R.string.home_wireless_adb_title)
+                                    },
+                                    body = if (failed) {
+                                        stringResource(R.string.notification_service_start_failed)
+                                    } else {
+                                        stringResource(R.string.notification_service_starting)
+                                    },
+                                    danger = failed
+                                )
+                            }
+                            item {
+                                MonospaceLog(
+                                    text = output.ifBlank { stringResource(R.string.starting_root_shell) }
+                                )
+                            }
+                        }
+
+                        if (errorToShow != 0) {
+                            moe.shizuku.manager.home.HomeErrorDialog(
+                                message = stringResource(errorToShow),
+                                onDismiss = { errorToShow = 0 }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    companion object {
+
+        const val EXTRA_IS_ROOT = "$EXTRA.IS_ROOT"
+        const val EXTRA_HOST = "$EXTRA.HOST"
+        const val EXTRA_PORT = "$EXTRA.PORT"
+    }
+}
+
+private class ViewModel(context: Context, root: Boolean, host: String?, port: Int) : androidx.lifecycle.ViewModel() {
+
+    private val sb = StringBuilder()
+    private val outputLock = Any()
+    private val _output = MutableLiveData<Resource<String>>()
+
+    val output = _output as LiveData<Resource<String>>
+
+    init {
+        try {
+            if (root) {
+                startRoot()
+            } else {
+                startAdb(host!!, port)
+            }
+        } catch (e: Throwable) {
+            postResult(e)
+        }
+    }
+
+    fun appendOutput(line: String) {
+        synchronized(outputLock) {
+            sb.appendLine(line)
+        }
+        postResult()
+    }
+
+    private fun appendRaw(value: String?) {
+        synchronized(outputLock) {
+            sb.append(value.orEmpty()).append('\n')
+        }
+        postResult()
+    }
+
+    private fun appendLine(value: String) {
+        synchronized(outputLock) {
+            sb.append(value).append('\n')
+        }
+        postResult()
+    }
+
+    private fun postResult(throwable: Throwable? = null) {
+        val snapshot = synchronized(outputLock) {
+            sb.toString()
+        }
+        if (throwable == null) {
+            _output.postValue(Resource.success(snapshot))
+        } else {
+            _output.postValue(Resource.error(throwable, snapshot))
+        }
+    }
+
+    private fun startRoot() {
+        synchronized(outputLock) {
+            sb.append("Starting with root...").append('\n').append('\n')
+        }
+        postResult()
+
+        viewModelScope.launch(Dispatchers.IO) {
+            if (!Shell.getShell().isRoot) {
+                Shell.getCachedShell()?.close()
+                appendLine("\nCan't open root shell, try again...")
+                if (!Shell.getShell().isRoot) {
+                    appendLine("\nStill not :(")
+                    postResult(NotRootedException())
+                    return@launch
+                }
+            }
+
+            Shell.cmd(Starter.internalCommand).to(object : CallbackList<String?>() {
+                override fun onAddElement(s: String?) {
+                    appendRaw(s)
+                }
+            }).submit {
+                if (it.code != 0) {
+                    appendLine("\nSend this to developer may help solve the problem.")
+                }
+            }
+        }
+    }
+
+    private fun startAdb(host: String, port: Int) {
+        synchronized(outputLock) {
+            sb.append("Starting with wireless adb in port $port...").append('\n').append('\n')
+        }
+        postResult()
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val key = try {
+                AdbKey(PreferenceAdbKeyStore(ShizukuSettings.getPreferences()), "shizuku")
+            } catch (e: Throwable) {
+                e.printStackTrace()
+                appendLine("\n${Log.getStackTraceString(e)}")
+
+                postResult(AdbKeyException(e))
+                return@launch
+            }
+
+            AdbClient(host, port, key).runCatching {
+                connect()
+                shellCommand(Starter.internalCommand) {
+                    synchronized(outputLock) {
+                        sb.append(String(it))
+                    }
+                    postResult()
+                }
+                close()
+            }.onFailure {
+                it.printStackTrace()
+
+                appendLine("\n${Log.getStackTraceString(it)}")
+                postResult(it)
+            }
+        }
+    }
+}
