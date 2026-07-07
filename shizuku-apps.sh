@@ -1,36 +1,34 @@
-#!/data/data/com.termux/files/usr/bin/bash
+#!/system/bin/sh
 # shizuku-apps.sh — MASTER SCRIPT (runtime-fetch, no zip)
 # Downloads the latest build of each curated app and installs it silently.
 #
-# ================================ SETUP ======================================
-# Stock Pixels have NO curl/wget in the adb/Shizuku shell, so this runs best
-# in Termux (which has curl), using rish (Shizuku's shell) for the installs.
-# One-time setup:
+# ===================== RECOMMENDED: aShell (accessible) ======================
+# aShell is a normal, TalkBack-friendly app and runs as the shell user, so it
+# can install directly. Stock Pixels just lack a downloader, so you supply one
+# static `curl` once. Using your BROWSER (accessible), download these 3 files
+# into your Downloads folder:
 #
-#   1) Install Termux from F-Droid (you already have F-Droid).
-#   2) In Termux:   pkg update -y && pkg install curl -y
-#   3) In Termux:   termux-setup-storage        (tap Allow)
-#   4) Set up rish: open the Shizuku app -> "Use Shizuku in terminal apps",
-#      follow it to copy `rish` and `rish_shizuku.dex` into Termux's home dir.
-#      Verify with:   sh rish -c id      (should print ...uid=2000(shell)...)
-#      If it complains about the app id:  export RISH_APPLICATION_ID=com.termux
-#   5) Make sure Shizuku is running (started via wireless debugging / your fork).
+#   1) the script:
+#      https://raw.githubusercontent.com/landonmoran/solid-guacamole/claude/suzuki-app-recommendations-frsmqx/shizuku-apps.sh
+#   2) curl (static arm64 binary):
+#      https://raw.githubusercontent.com/landonmoran/solid-guacamole/claude/suzuki-app-recommendations-frsmqx/shell-tools/curl
+#   3) cacert.pem (HTTPS certificates):
+#      https://raw.githubusercontent.com/landonmoran/solid-guacamole/claude/suzuki-app-recommendations-frsmqx/shell-tools/cacert.pem
 #
-# ================================ RUN ========================================
-#   Fetch + run in Termux:
-#     curl -O https://raw.githubusercontent.com/landonmoran/solid-guacamole/claude/suzuki-app-recommendations-frsmqx/shizuku-apps.sh
-#     bash shizuku-apps.sh
+# Then make sure Shizuku is running, open aShell, and run this ONE line:
+#      sh /sdcard/Download/shizuku-apps.sh
 #
-#   Uninstall everything this script manages:
-#     bash shizuku-apps.sh uninstall
+# The script copies curl into an executable spot, then downloads + installs
+# everything. Uninstall everything it manages with:
+#      sh /sdcard/Download/shizuku-apps.sh uninstall
 #
 # Already-installed apps are skipped, so re-running is safe.
 #
-# ---- aShell / adb-only fallback (no Termux) ---------------------------------
-# aShell can't download, but it CAN install. Pre-download the APKs into
-# /sdcard/Download/shizuku-apks/ with your browser, then in aShell run:
-#     sh /sdcard/Download/shizuku-apks.sh
-# and it will install every .apk it finds there.
+# ---- Optional: Termux + rish (only if you prefer it) ------------------------
+# If you ever use Termux instead: pkg install curl; termux-setup-storage; set
+# up rish from the Shizuku app; then `bash shizuku-apps.sh`. The script
+# auto-detects rish. (Termux's terminal is poor with TalkBack, so aShell above
+# is the better path for screen-reader use.)
 # =============================================================================
 
 ACTION="${1:-install}"
@@ -75,13 +73,28 @@ pm_uninstall() { # <package>
     else $RISH -c "pm uninstall --user 0 $1" >/dev/null 2>&1; fi
 }
 
-# ---- downloader --------------------------------------------------------------
-DLTOOL=""
-command -v curl >/dev/null 2>&1 && DLTOOL=curl
-[ -z "$DLTOOL" ] && command -v wget >/dev/null 2>&1 && DLTOOL=wget
+# ---- downloader (system curl/wget, or a bootstrapped static curl) ------------
+DLTOOL=""; DLCURL=""; CACERT=""
+if command -v curl >/dev/null 2>&1; then
+    DLTOOL=curl; DLCURL=curl
+elif command -v wget >/dev/null 2>&1; then
+    DLTOOL=wget
+else
+    # No system downloader (typical in aShell): bootstrap the static curl the
+    # user placed in Downloads. /sdcard is noexec, so copy it somewhere runnable.
+    if [ ! -x /data/local/tmp/curl ] && [ -f /sdcard/Download/curl ]; then
+        cp /sdcard/Download/curl /data/local/tmp/curl 2>/dev/null && chmod 755 /data/local/tmp/curl 2>/dev/null
+        [ -f /sdcard/Download/cacert.pem ] && cp /sdcard/Download/cacert.pem /data/local/tmp/cacert.pem 2>/dev/null
+    fi
+    if [ -x /data/local/tmp/curl ]; then
+        DLTOOL=curl; DLCURL=/data/local/tmp/curl
+        [ -f /data/local/tmp/cacert.pem ] && CACERT="--cacert /data/local/tmp/cacert.pem"
+        echo ">> using bootstrapped curl (/data/local/tmp/curl)"
+    fi
+fi
 
-dl()  { case "$DLTOOL" in wget) wget -qO "$2" "$1";; *) "$DLTOOL" -fL --retry 3 -o "$2" "$1";; esac; }
-get() { case "$DLTOOL" in wget) wget -qO- "$1";; *) "$DLTOOL" -fsL "$1";; esac; }
+dl()  { if [ "$DLTOOL" = wget ]; then wget -qO "$2" "$1"; else $DLCURL $CACERT -fL --retry 3 -o "$2" "$1"; fi; }
+get() { if [ "$DLTOOL" = wget ]; then wget -qO- "$1"; else $DLCURL $CACERT -fsL "$1"; fi; }
 
 install_url() { # <name> <package> <url>
     echo "== $1: downloading..."
@@ -157,7 +170,9 @@ if [ -z "$DLTOOL" ]; then
         done
         exit 0
     fi
-    echo "!! No curl/wget and no staged APKs. Use Termux (see header) or pre-download into $WORK."
+    echo "!! No downloader available. Put curl + cacert.pem in your Downloads folder"
+    echo "   (see the header of this script for the exact download links), then re-run."
+    echo "   Or pre-download the APKs into $WORK and re-run to install them offline."
     exit 1
 fi
 
