@@ -81,25 +81,39 @@ if [ -z "$ver" ]; then
 fi
 echo ">> curl: $ver"
 
-# 2) DNS: this static curl uses c-ares, which reads /etc/resolv.conf — a file
-#    Android doesn't have, so it can't resolve hosts ("curl: (6)"). Hand it
-#    public DNS servers explicitly. Then find a CA source that trusts the cert.
+# 2) DNS: the static curl's resolver has no /etc/resolv.conf and can't reach
+#    public DNS on some networks/VPNs ("couldn't resolve host"). So resolve
+#    every host with the PHONE'S own resolver via ping (bionic, always works),
+#    and pin the IPs with --resolve so curl never does its own DNS.
+echo ">> resolving hosts via device DNS..."
+resolve() { ping -c 1 -W 2 "$1" 2>/dev/null | sed -n 's/.*(\([0-9][0-9.]*\)).*/\1/p' | head -n1; }
+RES=""; nres=0
+for h in f-droid.org apt.izzysoft.de api.github.com github.com \
+         objects.githubusercontent.com release-assets.githubusercontent.com \
+         codeload.github.com raw.githubusercontent.com mixplorer.com; do
+    ip=$(resolve "$h")
+    if [ -n "$ip" ]; then RES="$RES --resolve $h:443:$ip"; nres=$((nres+1)); fi
+done
+echo ">> resolved $nres/9 hosts"
 DNS="--dns-servers 1.1.1.1,8.8.8.8,9.9.9.9"
-CAOPT=""; USEDNS=""; TU="https://f-droid.org/api/v1/packages/com.aistra.hail"
-for d in "$DNS" ""; do
-    for opt in "--cacert $CA" "--capath /apex/com.android.conscrypt/cacerts" "--capath /system/etc/security/cacerts"; do
-        if [ -n "$("$CURL" $d $opt -fsSL "$TU" 2>/dev/null | head -c 30)" ]; then CAOPT="$opt"; USEDNS="$d"; break 2; fi
+
+# find a working (network + CA) combo
+OPTS=""; TU="https://f-droid.org/api/v1/packages/com.aistra.hail"
+for base in "$RES" "$RES $DNS" "$DNS"; do
+    for ca in "--cacert $CA" "--capath /apex/com.android.conscrypt/cacerts" "--capath /system/etc/security/cacerts"; do
+        if [ -n "$("$CURL" $base $ca -fsSL "$TU" 2>/dev/null | head -c 30)" ]; then OPTS="$base $ca"; break 2; fi
     done
 done
-if [ -z "$CAOPT" ]; then
-    echo "!! HTTPS test failed. curl said:"
-    "$CURL" $DNS --cacert "$CA" -sSL "$TU" 2>&1 | head -c 400; echo
+if [ -z "$OPTS" ]; then
+    echo "!! Still can't fetch. Diagnostics:"
+    echo "-- ping:"; ping -c 1 -W 2 f-droid.org 2>&1 | head -n2
+    echo "-- curl+resolve:"; "$CURL" $RES --cacert "$CA" -sSL "$TU" 2>&1 | head -c 200; echo
     echo "!! send me everything from '>> files:' down."
     exit 1
 fi
-echo ">> TLS OK via ${CAOPT}${USEDNS:+ +forced-DNS}"
-dl()  { "$CURL" $USEDNS $CAOPT -fsSL --retry 3 -o "$2" "$1"; }
-get() { "$CURL" $USEDNS $CAOPT -fsL "$1"; }
+echo ">> network OK"
+dl()  { "$CURL" $OPTS -fsSL --retry 3 -o "$2" "$1"; }
+get() { "$CURL" $OPTS -fsL "$1"; }
 
 install_url() { echo "== $1: downloading..."; apk="$WORK/$2.apk"
     if ! dl "$3" "$apk"; then echo "!! $1: download failed"; return 1; fi
