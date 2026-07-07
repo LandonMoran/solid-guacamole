@@ -68,22 +68,15 @@ app() {
     "src_$1" "$2" "$3" "$4"; }
 
 roster() {
-    app github "ObtainX"       dev.bikram.obtainx                 bikram-agarwal/ObtainX
-    app fdroid "Canta"         io.github.samolego.canta
-    app fdroid "LogFox"        com.f0x1d.logfox
-    app github "AntiSplit-M"   com.abdurazaaqmohammed.AntiSplit   AbdurazaaqMohammed/AntiSplit-M
-    app github "WiFi Passwords" io.github.wifi_password_manager    Khh-vu/wifi-password-manager
-    app izzy   "Amarok-Hider"  deltazero.amarok.foss
-    app github "de1984"        io.github.dorumrr.de1984           dorumrr/de1984
-    app github "essentials"    com.sameerasw.essentials           sameerasw/essentials
-    app github "Seal Plus"     com.maheshtechnicals.sealplus      MaheshTechnicals/Sealplus
-    app fdroid "YTDLnis"       com.deniscerri.ytdl
-    app github "XStreaming"    com.dev.xstreaming                 Geocld/XStreaming
-    app fdroid "Permission Manager X" com.mirfatif.permissionmanagerx
-    app mixp   "MiXplorer"     com.mixplorer
-    app fdroid "Inure"         app.simple.inure
-    app fdroid "Neo Store"     com.machiav3lli.fdroid
-    app github "ShizuTools"    com.legendsayantan.adbtools        legendsayantan/ShizuTools
+    app github "Morphe"        app.morphe.manager                  MorpheApp/morphe-manager
+    app github "de1984"        io.github.dorumrr.de1984            dorumrr/de1984
+    app github "LogFox"        com.f0x1d.logfox                    F0x1d/LogFox
+    app github "AntiSplit-M"   com.abdurazaaqmohammed.AntiSplit    AbdurazaaqMohammed/AntiSplit-M
+    app github "WiFi Passwords" io.github.wifi_password_manager     Khh-vu/wifi-password-manager
+    app github "Seal Plus"     com.maheshtechnicals.sealplus       MaheshTechnicals/Sealplus
+    app github "YTDLnis"       com.deniscerri.ytdl                 deniscerri/ytdlnis
+    app github "Neo Store"     com.machiav3lli.fdroid              NeoApplications/Neo-Store
+    app github "PMX Pro"       com.mirfatif.permissionmanagerx.pro mirfatif/PermissionManagerX
 }
 POST_UNINSTALL="org.fdroid.fdroid"
 
