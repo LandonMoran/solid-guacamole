@@ -67,7 +67,7 @@ pm_uninstall() { if [ "$PM_MODE" = direct ]; then pm uninstall --user 0 "$1" >/d
 # ---- downloader = bundled curl (or system curl if the OS already has one) -----
 if command -v curl >/dev/null 2>&1; then DLCURL=curl; CACERT=""
 else DLCURL="$BIN"; CACERT="--cacert $CA"; fi
-dl()  { "$DLCURL" $CACERT -fL --retry 3 -o "$2" "$1"; }
+dl()  { "$DLCURL" $CACERT -fsSL --retry 3 -o "$2" "$1"; }
 get() { "$DLCURL" $CACERT -fsL "$1"; }
 
 install_url() { echo "== $1: downloading..."; apk="$WORK/$2.apk"
