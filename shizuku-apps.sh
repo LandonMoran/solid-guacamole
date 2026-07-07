@@ -81,21 +81,25 @@ if [ -z "$ver" ]; then
 fi
 echo ">> curl: $ver"
 
-# 2) find a CA source that completes an HTTPS handshake (our bundle, or the
-#    phone's own cert stores as fallback)
-CAOPT=""; TU="https://f-droid.org/api/v1/packages/com.aistra.hail"
-for opt in "--cacert $CA" "--capath /apex/com.android.conscrypt/cacerts" "--capath /system/etc/security/cacerts"; do
-    if [ -n "$("$CURL" $opt -fsSL "$TU" 2>/dev/null | head -c 30)" ]; then CAOPT="$opt"; break; fi
+# 2) DNS: this static curl uses c-ares, which reads /etc/resolv.conf — a file
+#    Android doesn't have, so it can't resolve hosts ("curl: (6)"). Hand it
+#    public DNS servers explicitly. Then find a CA source that trusts the cert.
+DNS="--dns-servers 1.1.1.1,8.8.8.8,9.9.9.9"
+CAOPT=""; USEDNS=""; TU="https://f-droid.org/api/v1/packages/com.aistra.hail"
+for d in "$DNS" ""; do
+    for opt in "--cacert $CA" "--capath /apex/com.android.conscrypt/cacerts" "--capath /system/etc/security/cacerts"; do
+        if [ -n "$("$CURL" $d $opt -fsSL "$TU" 2>/dev/null | head -c 30)" ]; then CAOPT="$opt"; USEDNS="$d"; break 2; fi
+    done
 done
 if [ -z "$CAOPT" ]; then
     echo "!! HTTPS test failed. curl said:"
-    "$CURL" --cacert "$CA" -sSL "$TU" 2>&1 | head -c 400; echo
+    "$CURL" $DNS --cacert "$CA" -sSL "$TU" 2>&1 | head -c 400; echo
     echo "!! send me everything from '>> files:' down."
     exit 1
 fi
-echo ">> TLS OK via ${CAOPT}"
-dl()  { "$CURL" $CAOPT -fsSL --retry 3 -o "$2" "$1"; }
-get() { "$CURL" $CAOPT -fsL "$1"; }
+echo ">> TLS OK via ${CAOPT}${USEDNS:+ +forced-DNS}"
+dl()  { "$CURL" $USEDNS $CAOPT -fsSL --retry 3 -o "$2" "$1"; }
+get() { "$CURL" $USEDNS $CAOPT -fsL "$1"; }
 
 install_url() { echo "== $1: downloading..."; apk="$WORK/$2.apk"
     if ! dl "$3" "$apk"; then echo "!! $1: download failed"; return 1; fi
