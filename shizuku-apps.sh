@@ -100,6 +100,9 @@ github "WiFi Password Manager" io.github.wifi_password_manager Khh-vu/wifi-passw
 izzy   "LinkSheet"    fe.linksheet                                                        # restore the 'open link with...' app chooser, per-domain rules
 izzy   "Amarok-Hider" deltazero.amarok.foss                                               # one-tap hide private apps and files
 github "ShizuWall"    com.arslan.shizuwall                AhmetCanArslan/ShizuWall        # per-app firewall, no VPN slot — plays nice with Tailscale
+github "rish-mcp"     kr.scin.rishmcp                     turin-dev/rish-mcp              # let Claude/any MCP client run shell commands on this phone (needs its relay server — see repo)
+github "essentials"   com.sameerasw.essentials            sameerasw/essentials            # sameerasw's Pixel tools/mods/workarounds grab-bag
+github "Seal Plus"    com.maheshtechnicals.sealplus       MaheshTechnicals/Sealplus       # video/audio downloader for 1000+ sites (yt-dlp), gradient UI fork of Seal
 
 echo
 echo "Done. Grant each app Shizuku permission when it asks on first launch."
