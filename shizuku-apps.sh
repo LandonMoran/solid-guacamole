@@ -64,11 +64,38 @@ pm_install() {
 }
 pm_uninstall() { if [ "$PM_MODE" = direct ]; then pm uninstall --user 0 "$1" >/dev/null 2>&1; else $RISH -c "pm uninstall --user 0 $1" >/dev/null 2>&1; fi; }
 
-# ---- downloader = bundled curl (or system curl if the OS already has one) -----
-if command -v curl >/dev/null 2>&1; then DLCURL=curl; CACERT=""
-else DLCURL="$BIN"; CACERT="--cacert $CA"; fi
-dl()  { "$DLCURL" $CACERT -fsSL --retry 3 -o "$2" "$1"; }
-get() { "$DLCURL" $CACERT -fsL "$1"; }
+# ---- pick + verify a working downloader -------------------------------------
+CURL=""
+command -v curl >/dev/null 2>&1 && CURL=curl
+[ -z "$CURL" ] && [ -x "$BIN" ] && CURL="$BIN"
+[ -z "$CURL" ] && { echo "!! no curl available (extraction failed?)"; exit 1; }
+echo ">> files: curl=$(wc -c < "$BIN" 2>/dev/null)B  ca=$(wc -c < "$CA" 2>/dev/null)B"
+
+# 1) does the binary even execute on this device?
+ver=$("$CURL" --version 2>&1 | head -n1)
+if [ -z "$ver" ]; then
+    echo "!! the bundled curl did NOT run. Error:"
+    "$CURL" --version 2>&1 | head -c 250; echo
+    echo "!! (device likely blocks executing it) — send me these lines."
+    exit 1
+fi
+echo ">> curl: $ver"
+
+# 2) find a CA source that completes an HTTPS handshake (our bundle, or the
+#    phone's own cert stores as fallback)
+CAOPT=""; TU="https://f-droid.org/api/v1/packages/com.aistra.hail"
+for opt in "--cacert $CA" "--capath /apex/com.android.conscrypt/cacerts" "--capath /system/etc/security/cacerts"; do
+    if [ -n "$("$CURL" $opt -fsSL "$TU" 2>/dev/null | head -c 30)" ]; then CAOPT="$opt"; break; fi
+done
+if [ -z "$CAOPT" ]; then
+    echo "!! HTTPS test failed. curl said:"
+    "$CURL" --cacert "$CA" -sSL "$TU" 2>&1 | head -c 400; echo
+    echo "!! send me everything from '>> files:' down."
+    exit 1
+fi
+echo ">> TLS OK via ${CAOPT}"
+dl()  { "$CURL" $CAOPT -fsSL --retry 3 -o "$2" "$1"; }
+get() { "$CURL" $CAOPT -fsL "$1"; }
 
 install_url() { echo "== $1: downloading..."; apk="$WORK/$2.apk"
     if ! dl "$3" "$apk"; then echo "!! $1: download failed"; return 1; fi
