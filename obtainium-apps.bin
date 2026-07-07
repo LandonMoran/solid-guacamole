@@ -91,24 +91,6 @@
       "allowIdChange": true
     },
     {
-      "id": "fe.linksheet",
-      "url": "https://github.com/LinkSheet/LinkSheet",
-      "author": "LinkSheet",
-      "name": "LinkSheet",
-      "installedVersion": null,
-      "latestVersion": null,
-      "apkUrls": "[]",
-      "preferredApkIndex": 0,
-      "additionalSettings": "{}",
-      "lastUpdateCheck": null,
-      "pinned": false,
-      "categories": [],
-      "releaseDate": null,
-      "changeLog": null,
-      "overrideSource": null,
-      "allowIdChange": true
-    },
-    {
       "id": "deltazero.amarok.foss",
       "url": "https://github.com/deltazefiro/Amarok-Hider",
       "author": "deltazefiro",

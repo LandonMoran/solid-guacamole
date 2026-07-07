@@ -73,7 +73,6 @@ roster() {
     app fdroid "LogFox"        com.f0x1d.logfox
     app github "AntiSplit-M"   com.abdurazaaqmohammed.AntiSplit   AbdurazaaqMohammed/AntiSplit-M
     app github "WiFi Passwords" io.github.wifi_password_manager    Khh-vu/wifi-password-manager
-    app izzy   "LinkSheet"     fe.linksheet
     app izzy   "Amarok-Hider"  deltazero.amarok.foss
     app github "de1984"        io.github.dorumrr.de1984           dorumrr/de1984
     app github "essentials"    com.sameerasw.essentials           sameerasw/essentials
