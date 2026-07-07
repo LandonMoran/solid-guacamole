@@ -86,7 +86,7 @@ echo ">> curl: $ver"
 #    every host with the PHONE'S own resolver via ping (bionic, always works),
 #    and pin the IPs with --resolve so curl never does its own DNS.
 echo ">> resolving hosts via device DNS..."
-resolve() { ping -c 1 -W 2 "$1" 2>/dev/null | sed -n 's/.*(\([0-9][0-9.]*\)).*/\1/p' | head -n1; }
+resolve() { ping -c 1 -W 2 "$1" 2>/dev/null | head -n1 | sed -n 's/^[^(]*(\([0-9.]*\)).*/\1/p'; }
 RES=""; nres=0
 for h in f-droid.org apt.izzysoft.de api.github.com github.com \
          objects.githubusercontent.com release-assets.githubusercontent.com \
